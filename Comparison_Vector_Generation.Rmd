@@ -1,0 +1,452 @@
+---
+title: "Full Comparison Vectors V3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(dplyr)
+library(kableExtra)
+library(ggplot2)
+library(tidyverse)
+library(fastLink)
+library(RecordLinkage)
+```
+
+```{r}
+# pull in only linkage variables per PRDN protocol
+infousa <- read_dta("C:/DATA/CN_hh_all.dta", 
+                    col_select=c("first_name_1", "last_name_1", "zip", "head_hh_age_code", 
+                                 "first_name_2", "last_name_2", "first_name_3", "last_name_3"))
+chirdu <- read.csv("C:/DATA/chirdu_infousa_alternate_names.csv", na.strings = c("", "NA"))
+```
+
+
+## 2. Pre-processing: InfoUSA
+
+```{r}
+infousa <- as.data.frame(as.matrix(infousa))
+infousa_clean <- infousa %>% unite(first_name_1,last_name_1, sep="$", col="name_1") %>%
+  unite(first_name_2, last_name_2, sep="$", col="name_2") %>%
+  unite(first_name_3, last_name_3, sep="$", col="name_3") %>%
+  pivot_longer(cols=-c(head_hh_age_code,zip), names_to="label", values_to="name") %>%
+  mutate(head_hh_age_code=case_when(label=="name_1" ~ head_hh_age_code )) %>%
+  filter(name!="$") %>% separate(name,into=c("fname","lname"),sep='\\$') %>% 
+  select(-label)
+
+infousa_mini <- infousa_clean
+
+
+infousa_rl <- infousa_mini %>%
+  rename( age = head_hh_age_code) %>%
+  mutate(across(where(is.character), str_trim))
+```
+
+```{r}
+
+chirdu_mini <- chirdu %>%
+  select(c(fullname, alt_fname = alternate_first, alt_lname = alternate_last, zipcode_W1, city_W1, birthyear_W1))
+
+
+chirdu_mini <- chirdu_mini %>%
+  mutate(age = 2018 - birthyear_W1) %>%
+  mutate(age = dplyr::case_when(
+    age < 25 ~ "A",
+    age >= 25 & age <30 ~ "B",
+    age >= 30 & age <35 ~ "C",
+    age >= 35 & age <40 ~ "D",
+    age >= 40 & age <45 ~ "E",
+    age >= 45 & age <50 ~ "F",
+    age >= 50 & age <55 ~ "G",
+    age >= 55 & age <60 ~ "H",
+    age >= 60 & age <65 ~ "I",
+    age >= 65 ~ "J",
+    age >= 65 & age <70 ~ "K",
+    age >= 70 & age <75 ~ "L",
+    age >= 75 ~ "M",
+  ))
+
+#hard code problematic cases
+chirdu_mini[c(411,450),"fullname"] = c("<redacted>", "<redacted>")
+chirdu_mini[c(450),"alt_fname"] = c("<redacted>")
+#separate by at least one space
+chirdu_mini1 <- separate(chirdu_mini, fullname, into = c("fname", "lname"),sep = " +")
+
+chirdu_rl <- chirdu_mini1 %>%
+  rename(zip = zipcode_W1, city = city_W1) %>%
+  select(-c(city, birthyear_W1)) %>% mutate_if(is.character, str_to_upper) %>%
+  mutate(across(where(is.character), str_trim))
+
+
+```
+```{r}
+n1 <- nrow(infousa_rl)
+n2 <- nrow(chirdu_rl)
+
+save(n1,  file= 'C:/DATA/n1.Rdata')
+save(n2,  file= 'C:/DATA/n2.Rdata')
+```
+
+
+
+```{r}
+data1 <- infousa_rl
+data2 <- chirdu_rl 
+
+#do not treat missing alternative names as missing
+data2$alt_fname[is.na(data2$alt_fname)]<-''
+data2$alt_lname[is.na(data2$alt_lname)] <-''
+```
+
+
+
+```{r, include=FALSE}
+myfun_firstname <- function(data1, data2, jaro_threshold = 0.9){
+  
+# data1: chirdu; data2: infousa
+# n1 number of chirdu to compare to full infousa
+
+starttime <- Sys.time()
+
+  # get all indexes of pairs
+  #pair_ids = matrix(as.integer(0), nrow=0, ncol=2)
+  pair_ids = merge(1:nrow(data1), 1:nrow(data2), all=TRUE)
+  allpairs = pair_ids #order
+  
+  # logical for each record pair if exact match
+  is_match = (data1$fname[allpairs[,1]]==data2$fname[allpairs[,2]])
+  
+  # alternate name match
+  is_alt_match = (data2$alt_fname[allpairs[,2]]==data1$fname[allpairs[,1]])
+  
+  # jaro_winkler match
+  is_jaro_match = (jarowinkler(data1$fname[allpairs[,1]],data2$fname[allpairs[,2]]))
+  
+  
+  direct_match <- as.numeric(is_match)
+  alt_match <- as.numeric(is_alt_match)
+  jaro_match <- as.numeric(is_jaro_match > jaro_threshold)
+  no_match = matrix(as.integer(0), nrow=nrow(allpairs), ncol=1)
+  location <- matrix(as.integer(0), nrow(allpairs), ncol=1) 
+  
+  res<- as.data.frame(cbind(allpairs, direct_match, alt_match, jaro_match,
+                            no_match, location))
+  
+  for(i in 3:(length(res)-1)){
+    ix = which(res[,i] == 1)
+    res[ix, (i+1):length(res)] <- 0
+  }
+  res<- res %>% mutate(missing_match= case_when(
+    if_any(everything(), is.na) ~ 1,
+    TRUE ~0
+  ))%>% 
+    #now get rid of NA for defensive coding
+    mutate(across(everything(), ~replace_na(.x,0))) %>% 
+    relocate(location, .after = last_col())
+  
+  #now code up logic for missing_match
+  res <- res %>% mutate(no_match = case_when(
+    alt_match ==1 | jaro_match==1 | direct_match == 1| missing_match==1 ~ 0,
+    alt_match ==0 & jaro_match==0 & direct_match == 0 & missing_match==0 ~ 1,
+  ))
+  
+  #use apply to make it faster
+  res$location <- unname(unlist(apply(res[,-c(1:2)],
+                                      1,
+                                      FUN=function(x) which(x==1))))
+endtime <- Sys.time()
+print(endtime - starttime)
+
+
+data.frame('firstname' = res$location)
+}
+
+```
+
+
+
+
+```{r}
+comp_vec <-myfun_firstname(data1, data2)
+```
+```{r}
+#testing code to cross check data
+indices <- merge(1:nrow(data1), 1:nrow(data2), all=TRUE)
+check <- cbind(indices,comp_vec )
+```
+
+
+```{r}
+write.csv(comp_vec, "C:/DATA/firstname_vectorV3.csv")
+```
+
+```{r}
+as.data.frame(table(comp_vec$firstname))
+```
+
+
+## Last Name
+
+```{r}
+myfun_lastname <- function(data1, data2, jaro_threshold = 0.9){
+
+
+
+starttime <- Sys.time()
+
+  # get all indexes of pairs
+  #pair_ids = matrix(as.integer(0), nrow=0, ncol=2)
+  pair_ids = merge(1:nrow(data1), 1:nrow(data2), all=TRUE)
+  allpairs = pair_ids #order
+  
+  # logical for each record pair if exact match
+  is_match = (data1$lname[allpairs[,1]]==data2$lname[allpairs[,2]])
+  
+  # alternate name match
+  is_alt_match = (data2$alt_lname[allpairs[,2]]==data1$lname[allpairs[,1]])
+  
+  # jaro_winkler match
+  is_jaro_match = (jarowinkler(data1$lname[allpairs[,1]],data2$lname[allpairs[,2]]))
+  
+  
+  direct_match <- as.numeric(is_match)
+  alt_match <- as.numeric(is_alt_match)
+  jaro_match <- as.numeric(is_jaro_match > jaro_threshold)
+  no_match = matrix(as.integer(0), nrow=nrow(allpairs), ncol=1)
+  location <- matrix(as.integer(0), nrow(allpairs), ncol=1) 
+  
+  res<- as.data.frame(cbind(allpairs, direct_match, alt_match, jaro_match,
+                            no_match, location))
+  
+  for(i in 3:(length(res)-1)){
+    ix = which(res[,i] == 1)
+    res[ix, (i+1):length(res)] <- 0
+  }
+  res<- res %>% mutate(missing_match= case_when(
+    if_any(everything(), is.na) ~ 1,
+    TRUE ~0
+  ))%>% 
+    #now get rid of NA for defensive coding
+    mutate(across(everything(), ~replace_na(.x,0))) %>% 
+    relocate(location, .after = last_col())
+  
+  #now code up logic for missing_match
+  res <- res %>% mutate(no_match = case_when(
+    alt_match ==1 | jaro_match==1 | direct_match == 1| missing_match==1 ~ 0,
+    alt_match ==0 & jaro_match==0 & direct_match == 0 & missing_match==0 ~ 1,
+  ))
+  
+  
+  #use apply to make it faster
+  res$location <- unname(unlist(apply(res[,-c(1:2)],
+                                      1,
+                                      FUN=function(x) which(x==1))))
+
+endtime <- Sys.time()
+print(endtime - starttime)
+
+
+data.frame('lastname' = res$location)
+
+
+}
+
+```
+
+
+```{r}
+comp_vec_ln <-myfun_lastname(data1, data2)
+```
+
+```{r}
+#check last name
+check_ln <- cbind(indices,comp_vec_ln)
+head(subset(check_ln, comp_vec_ln$lastname==5))
+```
+
+
+```{r}
+write.csv(comp_vec_ln, "C:/DATA/lastname_vector_V3.csv")
+```
+
+```{r}
+as.data.frame(table(comp_vec_ln$lastname))
+```
+
+
+
+```{r}
+myfun_zipcode_age <- function(data1, data2, jaro_threshold = 0.9){
+# data1: chirdu; data2: infousa
+# n1 number of chirdu to compare to full infousa
+  starttime <- Sys.time()
+  
+  pair_ids = merge(1:nrow(data1), 1:nrow(data2), all=TRUE)
+  allpairs = pair_ids #order
+  
+  # logical for each record pair if exact match
+  is_match = (data1$zip[allpairs[,1]]==data2$zip[allpairs[,2]])
+  direct_match <- as.numeric(is_match)
+
+  no_match = matrix(as.integer(0), nrow(allpairs), ncol=1)
+  location <- matrix(as.integer(0), nrow(allpairs), ncol=1) 
+  
+  res<- as.data.frame(cbind(allpairs, direct_match, no_match, location))
+  
+  for(i in 3:length(res)-1){
+    ix = which(res[,i] == 1)
+    res[ix, (i+1):length(res)] <- 0
+  }
+  
+  res<- res %>% mutate(missing_match= case_when(
+    if_any(everything(), is.na) ~ 1,
+    TRUE ~0
+  ))%>% 
+    #now get rid of NA for defensive coding
+    mutate(across(everything(), ~replace_na(.x,0))) %>% 
+    relocate(location, .after = last_col())
+  
+  res <- res %>% mutate(no_match = case_when(
+    direct_match == 1|missing_match==1 ~ 0,
+    direct_match == 0 & missing_match==0 ~ 1))
+  
+  #use apply to make it faster
+  res$location <- unname(unlist(apply(res[,-c(1:2)],
+                                      1,
+                                      FUN=function(x) which(x==1))))
+  
+  zipcode = res$location
+  
+  # logical for each record pair if exact match
+  is_match = (data1$age[allpairs[,1]]==data2$age[allpairs[,2]])
+  non_match_ids = allpairs[!is_match,]
+  
+  
+  direct_match <- as.numeric(is_match)
+  no_match = matrix(as.integer(0), nrow(allpairs), ncol=1)
+  location <- matrix(as.integer(0), nrow(allpairs), ncol=1) 
+  
+  res<- as.data.frame(cbind(allpairs, direct_match, no_match, location))
+  
+  for(i in 3:length(res)-1){
+    ix = which(res[,i] == 1)
+    res[ix, (i+1):length(res)] <- 0
+  }
+  
+  res<- res %>% mutate(missing_match= case_when(
+    if_any(everything(), is.na) ~ 1,
+    TRUE ~0
+  ))%>% 
+    #now get rid of NA for defensive coding
+    mutate(across(everything(), ~replace_na(.x,0))) %>% 
+    relocate(location, .after = last_col())
+  
+  res <- res %>% mutate(no_match = case_when(
+    direct_match == 1|missing_match==1 ~ 0,
+    direct_match == 0 & missing_match==0 ~ 1))
+  
+  #use apply to make it faster
+  res$location <- unname(unlist(apply(res[,-c(1:2)],
+                                      1,
+                                      FUN=function(x) which(x==1))))
+  age = res$location
+  
+  endtime <- Sys.time()
+  print(endtime - starttime)
+  
+  
+  as.data.frame(cbind(zipcode, age))
+}
+
+```
+
+```{r}
+comp_vec_az <- myfun_zipcode_age(data1, data2)
+```
+
+
+
+```{r}
+
+
+#check last name
+check_zip_age <- cbind(indices,comp_vec_az)
+head(subset(check_zip_age, check_zip_age$age==3))
+
+```
+
+```{r}
+write.csv(comp_vec_az, "C:/DATA/az_vector_V3.csv")
+```
+
+```{r}
+as.data.frame(table(comp_vec_az$age))
+```
+
+
+```{r}
+as.data.frame(table(comp_vec_az$zipcode))
+```
+
+# combine all together and save
+
+```{r}
+comp_total <- cbind(comp_vec, comp_vec_ln, comp_vec_az)
+```
+
+```{r}
+#useful diagnoistic
+write.csv(comp_total, "C:/DATA/variable_total_V3.csv", row.names=F)
+
+```
+
+
+
+reshape data
+```{r}
+df_names <- as.data.frame(cbind(comp_vec, comp_vec_ln))
+
+df_names[df_names=="5"] <- "0 0 0 0"
+df_names[df_names=="4"] <- "0 0 0 1"
+df_names[df_names=="3"] <- "0 0 1 0"
+df_names[df_names=="2"] <- "0 1 0 0"
+df_names[df_names=="1"] <- "1 0 0 0"
+
+comp_vec_az[comp_vec_az=="3"] <- "0 0"
+comp_vec_az[comp_vec_az=="2"] <- "0 1"
+comp_vec_az[comp_vec_az=="1"] <- "1 0"
+
+df_total <- as.data.frame(cbind(df_names, comp_vec_az))
+
+
+```
+
+```{r}
+df_total <- separate(df_total, col = "firstname", into = c("f1", "f2", "f3", "f4"))
+df_total <- separate(df_total, col = "lastname", into = c("l1", "l2", "l3", "l4"))
+df_total <- separate(df_total, col = "zipcode", into = c("z1", "z2"))
+df_total <- separate(df_total, col = "age", into = c("a1", "a2"))
+```
+
+```{r}
+write.csv(df_total, "C:/DATA/comparison_vectors_V3.csv")
+```
+
+
+```{r}
+#comparisons <- (data.matrix(df))
+comparisons <- (df_total == 1)
+```
+
+```{r}
+df1 <- read.csv("C:/DATA/comparison_vectors_V3.csv")
+df1$X <- NULL
+```
+
+
+
+
+
+
+

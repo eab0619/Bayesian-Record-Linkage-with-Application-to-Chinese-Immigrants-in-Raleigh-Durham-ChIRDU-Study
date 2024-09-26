@@ -1,0 +1,1588 @@
+---
+title: "Published Codes"
+author: "Archie Ju"
+date: "2024-09-14"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, results='hide', warning=FALSE, message=FALSE)
+```
+
+# Data Loading and Cleaning
+
+```{r data subsetting, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(mapview)
+library(ggplot2)
+library(gridExtra)
+library(data.table)
+library(viridis)
+library(modeest)
+library(sf)
+library(leafsync)
+library(gridExtra)
+library(spatstat)
+library(spdep)
+library(MASS)
+library(DescTools)
+```
+
+```{r import dataset}
+data_linkage = read.csv("linkage_output.csv")
+data_infoUSA = read.csv("infousa_out.csv")
+```
+
+```{r create latitude longitude variable}
+data_infoUSA = data_infoUSA %>% 
+  filter(lat_long != "No_Link") 
+data_infoUSA = data_infoUSA %>% 
+  mutate(lat_long = strsplit(data_infoUSA[,1],",")) %>% 
+  mutate(latitude = sapply(lat_long,"[[",1),
+         longitude = sapply(lat_long,"[[",2)) %>% 
+  mutate(latitude = as.numeric(latitude),
+         longitude = as.numeric(longitude)) %>% 
+  dplyr::select(-lat_long) %>% 
+  relocate(latitude, longitude)
+```
+
+```{r create random iterations}
+set.seed(123)
+
+random_it_1 = data_linkage[,c(1, 2, sample(3:ncol(data_linkage),1))]
+random_it_2 = data_linkage[,c(1, 2, sample(3:ncol(data_linkage),1))]
+random_it_3 = data_linkage[,c(1, 2, sample(3:ncol(data_linkage),1))]
+random_it_4 = data_linkage[,c(1, 2, sample(3:ncol(data_linkage),1))]
+random_it_5 = data_linkage[,c(1, 2, sample(3:ncol(data_linkage),1))]
+random_it_6 = data_linkage[,c(1, 2, sample(3:ncol(data_linkage),1))]
+random_it_7 = data_linkage[,c(1, 2, sample(3:ncol(data_linkage),1))]
+random_it_8 = data_linkage[,c(1, 2, sample(3:ncol(data_linkage),1))]
+random_it_9 = data_linkage[,c(1, 2, sample(3:ncol(data_linkage),1))]
+
+iteration_list = list(random_it_1, random_it_2, random_it_3, random_it_4,
+                      random_it_5, random_it_6, random_it_7, random_it_8,
+                      random_it_9)
+i = 1
+for (d in iteration_list)
+  {
+    d = d %>% 
+      filter(d[,3] != "No_Link")
+    d = d %>% 
+      mutate(lat_long = strsplit(d[,3],",")) %>% 
+      mutate(latitude = sapply(lat_long,"[[",1),
+             longitude = sapply(lat_long,"[[",2)) %>% 
+      mutate(latitude = as.numeric(latitude),
+             longitude = as.numeric(longitude)) %>% 
+      dplyr::select(-lat_long)
+    iteration_list[[i]] = d
+    i = i+1
+}
+
+random_it_1 = iteration_list[[1]]
+random_it_2 = iteration_list[[2]]
+random_it_3 = iteration_list[[3]]
+random_it_4 = iteration_list[[4]]
+random_it_5 = iteration_list[[5]]
+random_it_6 = iteration_list[[6]]
+random_it_7 = iteration_list[[7]]
+random_it_8 = iteration_list[[8]]
+random_it_9 = iteration_list[[9]]
+```
+
+
+# Figure 2: Kernel Density Estimate of Locations
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+## source: https://stackoverflow.com/questions/77239329/new-error-when-getting-basemap-from-stamenmaps
+# You would need your own API key, expired after 14 days
+# Only need to run one time ##
+
+# remove.packages("ggmap")
+# install.packages("devtools")
+# devtools::install_github("stadiamaps/ggmap")
+# register_stadiamaps(key = "your-personal-api-key") 
+
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+library("ggmap")
+
+map_lim <- list(min_lat = 35.5, 
+  top = 36.2,
+  min_lng = -79.25, 
+  max_lng = -78.25)
+
+map <- get_stadiamap(
+  bbox = c(left = map_lim$min_lng, right = map_lim$max_lng, bottom = map_lim$min_lat, top = map_lim$top),
+  zoom = 8
+)
+```
+
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+densityMap_link_random1 = ggmap(map) +
+  coord_cartesian() +
+  stat_density_2d(data = random_it_1, aes(x=longitude, y=latitude, fill = after_stat(density)), 
+                  geom = "raster", alpha = 0.6, 
+                  contour = FALSE, show.legend = FALSE) +
+  scale_fill_gradientn(
+    colors = c(NA, "royalblue", "yellow", "orange", "red"), 
+    values = c(0, 0.25, 0.5, 0.75, 1), 
+    na.value = "transparent") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+densityMap_link_random2 = ggmap(map) +
+  coord_cartesian() +
+  stat_density_2d(data = random_it_2, aes(x=longitude, y=latitude, fill = after_stat(density)), 
+                  geom = "raster", alpha = 0.5, 
+                  contour = FALSE, show.legend = FALSE) +
+  scale_fill_gradientn(
+    colors = c(NA, "royalblue", "yellow", "orange", "red"), 
+    values = c(0, 0.25, 0.5, 0.75, 1), 
+    na.value = "transparent") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+
+densityMap_link_random3 = ggmap(map) +
+  coord_cartesian() +
+  stat_density_2d(data = random_it_3, aes(x=longitude, y=latitude, fill = after_stat(density)), 
+                  geom = "raster", alpha = 0.5, 
+                  contour = FALSE, show.legend = FALSE) +
+  scale_fill_gradientn(
+    colors = c(NA, "royalblue", "yellow", "orange", "red"), 
+    values = c(0, 0.25, 0.5, 0.75, 1), 
+    na.value = "transparent") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+densityMap_link_random4 = ggmap(map) +
+  coord_cartesian() +
+  stat_density_2d(data = random_it_4, aes(x=longitude, y=latitude, fill = after_stat(density)), 
+                  geom = "raster", alpha = 0.5, 
+                  contour = FALSE, show.legend = FALSE) +
+  scale_fill_gradientn(
+    colors = c(NA, "royalblue", "yellow", "orange", "red"), 
+    values = c(0, 0.25, 0.5, 0.75, 1), 
+    na.value = "transparent") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+densityMap_link_random5 = ggmap(map) +
+  coord_cartesian() +
+  stat_density_2d(data = random_it_5, aes(x=longitude, y=latitude, fill = after_stat(density)), 
+                  geom = "raster", alpha = 0.5, 
+                  contour = FALSE, show.legend = FALSE) +
+  scale_fill_gradientn(
+    colors = c(NA, "royalblue", "yellow", "orange", "red"), 
+    values = c(0, 0.25, 0.5, 0.75, 1), 
+    na.value = "transparent") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+densityMap_link_random6 = ggmap(map) +
+  coord_cartesian() +
+  stat_density_2d(data = random_it_6, aes(x=longitude, y=latitude, fill = after_stat(density)), 
+                  geom = "raster", alpha = 0.5, 
+                  contour = FALSE, show.legend = FALSE) +
+  scale_fill_gradientn(
+    colors = c(NA, "royalblue", "yellow", "orange", "red"), 
+    values = c(0, 0.25, 0.5, 0.75, 1), 
+    na.value = "transparent") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+densityMap_link_random7 = ggmap(map) +
+  coord_cartesian() +
+  stat_density_2d(data = random_it_7, aes(x=longitude, y=latitude, fill = after_stat(density)), 
+                  geom = "raster", alpha = 0.5, 
+                  contour = FALSE, show.legend = FALSE) +
+  scale_fill_gradientn(
+    colors = c(NA, "royalblue", "yellow", "orange", "red"), 
+    values = c(0, 0.25, 0.5, 0.75, 1), 
+    na.value = "transparent") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+densityMap_link_random8 = ggmap(map) +
+  coord_cartesian() +
+  stat_density_2d(data = random_it_8, aes(x=longitude, y=latitude, fill = after_stat(density)), 
+                  geom = "raster", alpha = 0.5, 
+                  contour = FALSE, show.legend = FALSE) +
+  scale_fill_gradientn(
+    colors = c(NA, "royalblue", "yellow", "orange", "red"), 
+    values = c(0, 0.25, 0.5, 0.75, 1), 
+    na.value = "transparent") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+densityMap_link_random9 = ggmap(map) +
+  coord_cartesian() +
+  stat_density_2d(data = random_it_9, aes(x=longitude, y=latitude, fill = after_stat(density)), 
+                  geom = "raster", alpha = 0.5, 
+                  contour = FALSE, show.legend = FALSE) +
+  scale_fill_gradientn(
+    colors = c(NA, "royalblue", "yellow", "orange", "red"), 
+    values = c(0, 0.25, 0.5, 0.75, 1), 
+    na.value = "transparent") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+
+
+# grid.arrange(densityMap_link_random1, densityMap_link_random2,
+#              densityMap_link_random3, densityMap_link_random4,
+#              densityMap_link_random5, densityMap_link_random6,
+#              densityMap_link_random7, densityMap_link_random8,
+#              densityMap_link_random9, ncol=3,
+#              bottom="Longitude", left="Latitude")
+```
+
+
+# Table 4: Percent residing in top twelve zip codes
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+data_linkage = read.csv("linkage_output_zip.csv")
+data_infoUSA = read.csv("infousa_out.csv")
+
+data_linkage = data_linkage[!is.na(data_linkage$durationinRDU_cumul), ]
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+set.seed(123)
+random_sample = sample(7:ncol(data_linkage), 1000, replace = FALSE) # actual posterior draws start from 7th col
+```
+
+## Data Cleaning
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+data_link_summary = data_linkage %>% 
+  mutate(summary = apply(data_linkage[ ,7:length(data_linkage)], 1, mfv)) %>% 
+  dplyr::select(rid, eduatt_ACS, durationinRDU_cumul, zip, summary)
+data_link_summary = data_link_summary %>% 
+  filter(summary != "No_Link") 
+data_link_summary = data_link_summary%>% 
+  mutate(lat_long = strsplit(data_link_summary[,5],",")) %>% 
+  mutate(latitude = sapply(lat_long,"[[",1),
+         longitude = sapply(lat_long,"[[",2)) %>% 
+  mutate(latitude = as.numeric(latitude),
+         longitude = as.numeric(longitude)) %>% 
+  dplyr::select(-lat_long)
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+data_infoUSA = data_infoUSA %>% 
+  filter(lat_long != "No_Link") 
+data_infoUSA = data_infoUSA %>% 
+  mutate(lat_long = strsplit(data_infoUSA[,1],",")) %>% 
+  mutate(latitude = sapply(lat_long,"[[",1),
+         longitude = sapply(lat_long,"[[",2)) %>% 
+  mutate(latitude = as.numeric(latitude),
+         longitude = as.numeric(longitude)) %>% 
+  dplyr::select(-lat_long) %>% 
+  relocate(latitude, longitude)
+```
+
+## Percentage within Region
+
+### Counts within Zipcode
+
+#### Linkage data
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+occurrences = table(data_link_summary$zip)
+```
+
+#### ChiRDU data
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# Function to filter out "No_Link" entries from a column
+filter_no_link <- function(df, col_name) {
+  df = df %>% filter(df[[col_name]] != "No_Link")
+  
+  return(df[col_name])
+}
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# create zip code table 
+
+## chiRDU
+zip_table = as.data.frame(occurrences)
+colnames(zip_table) = c("Zipcode", "Count_chiRDU")
+zip_table$Zipcode = as.character(zip_table$Zipcode)
+zip_table$Percent_chiRDU = zip_table$Count_chiRDU / nrow(data_linkage)
+
+## link summary
+zip_linkMode = data_link_summary %>% 
+  group_by(zip) %>% 
+  summarize(count = n())
+zip_table = zip_table %>% 
+  left_join(zip_linkMode, by = c("Zipcode" = "zip")) %>% 
+  mutate(count = ifelse(is.na(count), 0, count))
+colnames(zip_table) = c("Zipcode","Count_chiRDU", "Percent_chiRDU", "Count_linkageMode")
+zip_table$Percent_linkageMode = zip_table$Count_linkageMode / nrow(data_link_summary)
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# create zip code table continued
+
+## count percentile over 9000 linked cases
+
+frequency_table = zip_table$Zipcode
+frequency_table = as.data.frame(frequency_table)
+
+for (i in 7:ncol(data_linkage)){
+  link_zip = data_linkage[data_linkage[, i] != "No_Link", "zip"]
+  link_zip = data.frame(link_zip)
+  link_zip = link_zip %>% group_by(link_zip) %>% summarise(count = n())
+
+  temp_table <- left_join(zip_table, link_zip, by = c("Zipcode" = "link_zip")) %>% 
+    mutate(count = ifelse(is.na(count), 0, count))
+  
+  frequency_table = cbind(frequency_table, temp_table$count)
+
+}
+
+### transpose
+frequency_table = transpose(frequency_table)
+colnames(frequency_table) = frequency_table[1,]
+frequency_table = frequency_table[-1,]
+
+colnames(frequency_table)[1] = "No Zip"
+
+### convert to numeric
+frequency_table = apply(frequency_table, 2, function(x) as.numeric(as.character(x)))
+frequency_table = as.data.frame(frequency_table)
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# create zip code table continued
+
+## Count percentile
+
+low_quantile = list()
+high_quantile = list()
+
+for (i in 1:ncol(frequency_table)){
+  low = unname(quantile(as.numeric(frequency_table[,i]), probs = 0.025))
+  high = unname(quantile(as.numeric(frequency_table[,i]), probs = 0.975))
+  
+  low_quantile = append(low_quantile, low)
+  high_quantile = append(high_quantile, high)
+}
+
+zip_table$Count_low_9000 = unlist(low_quantile)
+zip_table$Count_high_9000 = unlist(high_quantile)
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# create zip code table continued
+## percentage percentile
+
+num_links = list()
+
+for (i in 7:ncol(data_linkage)){
+  num_link = sum(data_linkage[,i] == "No_Link")
+  num_links = append(num_links, num_link)
+}
+num_links = unlist(num_links)
+num_links = nrow(data_linkage) - num_links
+
+## calculate percentile (use number linked in each dataset as denominator for that dataset)
+frequency_table = frequency_table %>% 
+  mutate(across(everything(), ~ . / num_links[row_number()]))
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# create zip code table continued
+## Percent percentile
+
+low_quantile = list()
+high_quantile = list()
+
+for (i in 1:ncol(frequency_table)){
+  low = unname(quantile(frequency_table[,i], probs = 0.025))
+  high = unname(quantile(frequency_table[,i], probs = 0.975))
+  
+  low_quantile = append(low_quantile, low)
+  high_quantile = append(high_quantile, high)
+}
+
+zip_table$Percent_low_9000 = unlist(low_quantile)
+zip_table$Percent_high_9000 = unlist(high_quantile)
+
+colnames(zip_table)[1] = "Zipcode"
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+write.csv(zip_table, file = 'zip_frequency_table.csv', row.names = FALSE)
+```
+
+#### InfoUSA
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+occurrences = table(data_infoUSA$zip)
+
+occurrences = as.data.frame(occurrences)
+
+colnames(occurrences) = c("Zipcode", "Count")
+
+occurrences = occurrences %>% mutate(Percentage = Count / sum(Count))
+
+# filter InfoUSA  only in zip codes that appear in the 509 ChIRDU sample cases.  
+occurrences = left_join(zip_table, occurrences, by = c("Zipcode" = "Zipcode"))
+occurrences = subset(occurrences, select = -c(Count_chiRDU, Percent_chiRDU))
+
+write_csv(occurrences, file = "infoUSA_zipcode.csv")
+```
+
+### Counts within Circle
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+location_sf = st_as_sf(data_link_summary, coords = c("longitude", "latitude"), crs = 4326)
+
+center <- c(-79.0469, 35.95)  # UNC Chapel Hill Campus
+radius <- 5000  
+
+# Create a circular polygon for UNC
+point_sf_unc <- st_as_sf(data.frame(lon = center[1], lat = center[2]), 
+                         coords = c("lon", "lat"), crs = 4326)
+circle_sf_unc <- st_buffer(point_sf_unc, dist = radius) 
+
+# Create a circular polygon for Morrisville
+center <- c(-78.8856, 35.8235)  # Morrisville 
+radius <- 5000 
+
+point_sf_morris <- st_as_sf(data.frame(lon = center[1], lat = center[2]), 
+                            coords = c("lon", "lat"), crs = 4326)
+circle_sf_morris <- st_buffer(point_sf_morris, dist = radius) 
+
+# Ensure coordinate system same
+location_sf <- st_transform(location_sf, st_crs(circle_sf_unc))
+      
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# Pack this into a function
+
+count_within_circle <- function(posterior_draw, center, radius) {
+  # Create linkage location
+  location_sf = st_as_sf(posterior_draw, coords = c("longitude", "latitude"), 
+                         crs = 4326)
+  # Create circular polygon
+  point_sf <- st_as_sf(data.frame(lon = center[1], lat = center[2]), 
+                       coords = c("lon", "lat"), crs = 4326)
+  circle_sf <- st_buffer(point_sf, dist = radius)
+  
+  # Ensure coordinate system is the same
+  location_sf <- st_transform(location_sf, st_crs(circle_sf))
+  
+  
+  # Calculate number of instances within circle
+  num_within_circle <- sum(st_within(location_sf, circle_sf, sparse = FALSE))
+  return(num_within_circle)
+  
+}
+
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# InfoUSA dataset
+
+location_sf = st_as_sf(data_infoUSA, coords = c("longitude", "latitude"), crs = 4326)
+
+center <- c(-79.0469, 35.95)  # UNC Chapel Hill Campus
+radius <- 5000  
+
+# Create a circular polygon for UNC
+point_sf_unc <- st_as_sf(data.frame(lon = center[1], lat = center[2]), 
+                         coords = c("lon", "lat"), crs = 4326)
+circle_sf_unc <- st_buffer(point_sf_unc, dist = radius) 
+
+# Create a circular polygon for Morrisville
+center <- c(-78.8856, 35.8235)  # Morrisville 
+radius <- 5000 
+
+point_sf_morris <- st_as_sf(data.frame(lon = center[1], lat = center[2]), 
+                            coords = c("lon", "lat"), crs = 4326)
+circle_sf_morris <- st_buffer(point_sf_morris, dist = radius) 
+
+# Ensure coordinate system same
+location_sf <- st_transform(location_sf, st_crs(circle_sf_unc))
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+count_infoUSA_chapelHill = count_within_circle(data_infoUSA, c(-79.0469, 35.95), 5000)
+count_infoUSA_morrisville = count_within_circle(data_infoUSA, c(-78.8856, 35.8235), 5000)
+
+percent_infoUSA_chapelHill = count_infoUSA_chapelHill / nrow(data_infoUSA)
+percent_infoUSA_morrisville = count_infoUSA_morrisville / nrow(data_infoUSA)
+```
+
+##### Circle Count across Posterior
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+coord_split <- function(dataframe) {
+  # Split the first column by ","
+  split_coordinates <- strsplit(as.character(dataframe[,1]), ",")
+  
+  # Extract latitude and longitude
+  latitude <- as.numeric(sapply(split_coordinates, function(x) as.numeric(x[1])))
+  longitude <- as.numeric(sapply(split_coordinates, function(x) as.numeric(x[2])))
+  
+  # Create new dataframe with latitude and longitude
+  new_dataframe <- data.frame(latitude = latitude, longitude = longitude)
+  
+  return(new_dataframe)
+}
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# Function to filter out "No_Link" entries from a column
+filter_no_link <- function(df, col_name) {
+  df = df %>% filter(df[[col_name]] != "No_Link")
+  
+  return(df[col_name])
+}
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# Apply the function to each specified column
+within_count = list()
+
+for (i in random_sample) {
+  column_name <- colnames(data_linkage)[i]
+  postDraws <- filter_no_link(data_linkage, column_name)
+  
+  postDraws = coord_split(postDraws)
+  
+  within_unc = count_within_circle(postDraws, c(-79.0469, 35.95), 5000)
+  within_morrisville = count_within_circle(postDraws, c(-78.8856, 35.8235), 5000)
+  
+  within_count[[i]] = c(within_unc, within_morrisville)
+}
+
+within_count <- do.call(rbind, within_count)
+within_count = as.data.frame(within_count)
+colnames(within_count) <- c("within_chapelHill", "within_morrisville")
+
+# Add outside count
+
+within_count = within_count %>% mutate(outside = nrow(data_linkage) - within_chapelHill - within_morrisville)
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+# sample standard deviation
+
+std_withinUNC = apply(within_count["within_chapelHill"], 2, sd)
+std_withinMorris = apply(within_count["within_morrisville"], 2, sd)
+```
+
+# Geographic Distribution by Circle Methods
+
+## Percentage in Circles
+
+### P_hat
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+count_links = function(df, random_sample){
+  nrows = nrow(df)
+  link_counts <- numeric(0)
+  for (i in random_sample){
+    nlinks = nrows - sum(df[, i] == "No_Link")
+    link_counts <- c(link_counts, nlinks)
+  }
+  results_df <- data.frame(link_counts = link_counts)
+  
+  return(results_df)
+}
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+link_counts = count_links(data_linkage, random_sample)
+within_count = cbind(within_count, link_counts)
+```
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+n = within_count["link_counts"]
+p_hat_chapelHill = within_count["within_chapelHill"] / within_count["link_counts"]
+p_hat_morrisville = within_count["within_morrisville"] / within_count["link_counts"]
+```
+
+### Variance
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+v_chapelHill = p_hat_chapelHill * (1-p_hat_chapelHill) / n
+v_morrisville = p_hat_morrisville * (1-p_hat_morrisville) / n
+```
+
+### Q_bar, Expected value of percentage of match
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+q_bar_chapelHill = sum(p_hat_chapelHill / nrow(p_hat_chapelHill)) 
+q_bar_morrisville = sum(p_hat_morrisville / nrow(p_hat_morrisville)) 
+```
+
+### V_bar, Expected value of variance
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+v_bar_chapelHill = sum(v_chapelHill / nrow(v_chapelHill))
+v_bar_morrisville = sum(v_morrisville / nrow(v_morrisville))
+
+sprintf("The value of v_bar_chapelHill is %.7f", v_bar_chapelHill)
+sprintf("The value of v_bar_morrisville is %.7f", v_bar_morrisville)
+
+```
+
+### B
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+b_chapelHill = sum((p_hat_chapelHill - q_bar_chapelHill)^2 / (nrow(p_hat_chapelHill)-1))
+b_morrisville = sum((p_hat_morrisville - q_bar_morrisville)^2 / (nrow(p_hat_chapelHill)-1))
+
+sprintf("The value of b_chapelHill is %.7f", b_chapelHill)
+sprintf("The value of b_morrisville is %.7f", b_morrisville)
+```
+
+### T, Total Variance
+
+```{r}
+T_chapelHill = (1 + 1/length(random_sample)) * b_chapelHill + v_bar_chapelHill
+T_morrisville = (1 + 1/length(random_sample)) * b_morrisville + v_bar_morrisville
+```
+
+### Confidence Interval
+
+```{r}
+upperBound_chapelHill = q_bar_chapelHill + 1.96 * sqrt(T_chapelHill)
+lowerBound_chapelHill = q_bar_chapelHill - 1.96 * sqrt(T_chapelHill)
+sprintf("The confidence interval for Percentage of population within Chapel Hill circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_chapelHill, upperBound_chapelHill, length(random_sample))
+```
+
+```{r}
+upperBound_morrisville = q_bar_morrisville + 1.96 * sqrt(T_morrisville)
+lowerBound_morrisville = q_bar_morrisville - 1.96 * sqrt(T_morrisville)
+sprintf("The confidence interval for Percentage of population within Morrisville circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_morrisville, upperBound_morrisville, length(random_sample))
+```
+
+## Percentage (duration \< 5)
+
+Percentage of individuals inside the Chapel Hill circle who have \< 5 duration.
+
+Denominator in any linked data file is the number of links inside the chapel Hill circle.\
+The numerator is the number with duration \< 5 in that circle
+
+```{r}
+instance_within_circle <- function(posterior_draw, center, radius) {
+  # Create linkage location
+  location_sf <- st_as_sf(posterior_draw, coords = c("longitude", "latitude"), 
+                          crs = 4326)
+  # Create circular polygon
+  point_sf <- st_as_sf(data.frame(lon = center[1], lat = center[2]), 
+                       coords = c("lon", "lat"), crs = 4326)
+  circle_sf <- st_buffer(point_sf, dist = radius)
+  
+  # Ensure coordinate system is the same
+  location_sf <- st_transform(location_sf, st_crs(circle_sf))
+  
+  # Check which points fall within the circle
+  points_within_circle <- st_within(location_sf, circle_sf, sparse = FALSE)
+  
+  # Extract row indices of points within the circle
+  indices <- which(points_within_circle)
+  
+  return(indices)
+}
+```
+
+```{r within_count}
+# within count for duration < 5
+
+
+within_count = list()
+
+for (i in random_sample) {
+  column_name <- colnames(data_linkage)[i]
+  postDraws <- filter_no_link(data_linkage, column_name)
+  data_link_only = data_linkage %>% filter(data_linkage[[column_name]] != "No_Link")
+  
+  # number of links
+  n_links = nrow(postDraws)
+
+  postDraws = coord_split(postDraws)
+  
+  # find within circle counts 
+  within_unc = count_within_circle(postDraws, c(-79.0469, 35.95), 5000)
+  within_morrisville = count_within_circle(postDraws, c(-78.8856, 35.8235), 5000)
+  
+  # find duration < 5
+  within_chapelHill_instances = instance_within_circle(postDraws, c(-79.0469, 35.95), 5000)
+  within_morrisville_instances = instance_within_circle(postDraws, c(-78.8856, 35.8235), 5000)
+  within_circles_instances = c(within_chapelHill_instances, within_morrisville_instances)
+  
+  inside_chapelHill = data_link_only[within_chapelHill_instances, 1:4]
+  inside_morrisville = data_link_only[within_morrisville_instances, 1:4]
+  outside = data_link_only[-within_circles_instances, 1:4]
+  
+  n_dur_5_chapelHill = nrow(inside_chapelHill[inside_chapelHill$durationinRDU_cumul < 5, ])
+  n_dur_5_morrisville = nrow(inside_morrisville[inside_morrisville$durationinRDU_cumul < 5, ])
+  n_dur_5_outside = nrow(outside[outside$durationinRDU_cumul < 5, ])
+  
+  # combine instance with counts
+  within_count[[i]] = c(within_unc, within_morrisville, n_dur_5_chapelHill, n_dur_5_morrisville,
+                        n_dur_5_outside, n_links)
+}
+
+within_count <- do.call(rbind, within_count)
+within_count = as.data.frame(within_count)
+colnames(within_count) <- c("within_chapelHill", "within_morrisville", "dura_5_chapelHill", "dura_5_morrisville", "dura_5_outside","link_counts")
+
+
+# Add outside count
+
+within_count = within_count %>% mutate(outside = link_counts - within_chapelHill - within_morrisville)
+```
+
+### P_hat
+
+```{r}
+n_chapelHill = within_count["within_chapelHill"]
+n_morrisville = within_count["within_morrisville"]
+n_outside = within_count["outside"]
+
+p_hat_chapelHill = within_count["dura_5_chapelHill"] / within_count["within_chapelHill"]
+p_hat_morrisville = within_count["dura_5_morrisville"] / within_count["within_morrisville"]
+p_hat_outside = within_count["dura_5_outside"] / within_count["outside"]
+```
+
+### Variance
+
+```{r}
+v_chapelHill = p_hat_chapelHill * (1-p_hat_chapelHill) / n_chapelHill
+v_morrisville = p_hat_morrisville * (1-p_hat_morrisville) / n_morrisville
+v_outside = p_hat_outside * (1-p_hat_outside) / n_outside
+```
+
+### Q_bar, Expected value of percentage of match
+
+```{r}
+q_bar_chapelHill = sum(p_hat_chapelHill / nrow(p_hat_chapelHill)) 
+q_bar_morrisville = sum(p_hat_morrisville / nrow(p_hat_morrisville)) 
+q_bar_outside = sum(p_hat_outside / nrow(p_hat_outside)) 
+```
+
+### V_bar, Expected value of variance
+
+```{r}
+v_bar_chapelHill = sum(v_chapelHill / nrow(v_chapelHill))
+v_bar_morrisville = sum(v_morrisville / nrow(v_morrisville))
+v_bar_outside = sum(v_outside / nrow(v_outside))
+
+sprintf("The value of v_bar_chapelHill is %.7f", v_bar_chapelHill)
+sprintf("The value of v_bar_morrisville is %.7f", v_bar_morrisville)
+sprintf("The value of v_bar_outside is %.7f", v_bar_outside)
+```
+
+### B
+
+```{r}
+b_chapelHill = sum((p_hat_chapelHill - q_bar_chapelHill)^2 / (nrow(p_hat_chapelHill)-1))
+b_morrisville = sum((p_hat_morrisville - q_bar_morrisville)^2 / (nrow(p_hat_morrisville)-1))
+b_outside = sum((p_hat_outside - q_bar_outside)^2 / (nrow(p_hat_outside)-1))
+
+sprintf("The value of b_chapelHill is %.7f", b_chapelHill)
+sprintf("The value of b_morrisville is %.7f", b_morrisville)
+sprintf("The value of b_outside is %.7f", b_outside)
+```
+
+### T, Total Variance
+
+```{r}
+T_chapelHill = (1 + 1/length(random_sample)) * b_chapelHill + v_bar_chapelHill
+T_morrisville = (1 + 1/length(random_sample)) * b_morrisville + v_bar_morrisville
+T_outside = (1 + 1/length(random_sample)) * b_outside + v_bar_outside
+```
+
+### Confidence Interval
+
+```{r}
+upperBound_chapelHill = q_bar_chapelHill + 1.96 * sqrt(T_chapelHill)
+lowerBound_chapelHill = q_bar_chapelHill - 1.96 * sqrt(T_chapelHill)
+sprintf("The confidence interval for Percentage of population within Chapel Hill circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_chapelHill, upperBound_chapelHill, length(random_sample))
+```
+
+```{r}
+upperBound_morrisville = q_bar_morrisville + 1.96 * sqrt(T_morrisville)
+lowerBound_morrisville = q_bar_morrisville - 1.96 * sqrt(T_morrisville)
+sprintf("The confidence interval for Percentage of population within Morrisville circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_morrisville, upperBound_morrisville, length(random_sample))
+```
+
+```{r}
+upperBound_outside = q_bar_outside + 1.96 * sqrt(T_outside)
+lowerBound_outside = q_bar_outside - 1.96 * sqrt(T_outside)
+sprintf("The confidence interval for Percentage of population outside of both circles is %.4f to %.4f, based on %d random posterior samples", lowerBound_outside, upperBound_outside, length(random_sample))
+```
+
+## Duration
+
+### Get Duration
+
+```{r}
+# Apply the function to each specified column
+within_duration = list()
+
+for (i in random_sample) {
+  column_name <- colnames(data_linkage)[i]
+  postDraws <- filter_no_link(data_linkage, column_name)
+  
+  postDraws = coord_split(postDraws)
+  
+  within_chapelHill_instances = instance_within_circle(postDraws, c(-79.0469, 35.95), 5000)
+  within_morrisville_instances = instance_within_circle(postDraws, c(-78.8856, 35.8235), 5000)
+  
+  duration_within_chapelHill = list(data_linkage[within_chapelHill_instances, "durationinRDU_cumul"])
+  duration_within_morrisville = list(data_linkage[within_morrisville_instances, "durationinRDU_cumul"])
+  
+  within_duration[[i]] = c(duration_within_chapelHill, duration_within_morrisville)
+}
+
+within_duration <- do.call(rbind, within_duration)
+within_duration = as.data.frame(within_duration)
+colnames(within_duration) <- c("Duration_within_chapelHill", "Duration_within_morrisville")
+
+```
+
+### Q
+
+```{r}
+Q_chapelHill = sapply(within_duration$Duration_within_chapelHill, function(x) mean(x))
+Q_morrisville = sapply(within_duration$Duration_within_morrisville, function(x) mean(x))
+```
+
+### V
+
+```{r}
+V_chapelHill = sapply(within_duration$Duration_within_chapelHill, function(x) var(x)/length(x))
+V_morrisville = sapply(within_duration$Duration_within_morrisville, function(x) var(x)/length(x))
+```
+
+### Q_bar
+
+```{r}
+Q_bar_chapelHill = sum(Q_chapelHill) / length(Q_chapelHill)
+Q_bar_morrisville = sum(Q_morrisville) / length(Q_morrisville)
+```
+
+### V_bar
+
+```{r}
+V_bar_chapelHill = sum(V_chapelHill) / length(V_chapelHill)
+V_bar_morrisville = sum(V_morrisville) / length(V_morrisville)
+```
+
+### B
+
+```{r}
+B_chapelHill = sum((Q_chapelHill - Q_bar_chapelHill)^2 / (length(Q_chapelHill) - 1))
+B_morrisville = sum((Q_morrisville - Q_bar_morrisville)^2 / (length(Q_morrisville) - 1))
+```
+
+### Confidence Interval
+
+```{r}
+upperBound_chapelHill = Q_bar_chapelHill + 1.96 * sqrt(V_bar_chapelHill + (1 + 1/length(Q_chapelHill) * B_chapelHill))
+
+lowerBound_chapelHill = Q_bar_chapelHill - 1.96 * sqrt(V_bar_chapelHill + (1 + 1/length(Q_chapelHill) * B_chapelHill))
+
+sprintf("The confidence interval for Cumulative Duration of population within Chapel Hill circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_chapelHill, upperBound_chapelHill, length(random_sample))
+```
+
+```{r}
+upperBound_morrisville = Q_bar_morrisville + 1.96 * sqrt(V_bar_morrisville + (1 + 1/length(Q_morrisville) * B_morrisville))
+
+lowerBound_morrisville = Q_bar_morrisville - 1.96 * sqrt(V_bar_morrisville + (1 + 1/length(Q_morrisville) * B_morrisville))
+
+sprintf("The confidence interval for Cumulative Duration of population within Morrisville circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_morrisville, upperBound_morrisville, length(random_sample))
+```
+
+## Duration (for outside circles)
+
+### Get Duration
+
+```{r}
+# # trial with posterior_mode
+# 
+# within_circles_instances = c(within_chapelHill_instances, within_morrisville_instances)
+# within_circles_instances = rank(within_circles_instances)
+# 
+# duration_outside_circles = data_link_summary[-within_circles_instances, "durationinRDU_cumul"]
+```
+
+```{r}
+# Apply the function to each specified column
+outside_duration = list()
+
+l = 1
+for (i in random_sample) {
+  column_name <- colnames(data_linkage)[i]
+  postDraws <- filter_no_link(data_linkage, column_name)
+  
+  postDraws = coord_split(postDraws)
+  
+  within_chapelHill_instances = instance_within_circle(postDraws, c(-79.0469, 35.95), 5000)
+  within_morrisville_instances = instance_within_circle(postDraws, c(-78.8856, 35.8235), 5000)
+  within_circles_instances = c(within_chapelHill_instances, within_morrisville_instances)
+  
+  duration_outside_circles = list(data_linkage[-within_circles_instances, "durationinRDU_cumul"])
+  
+  outside_duration[l] = duration_outside_circles
+  l = l+1
+}
+
+outside_duration = do.call(rbind, outside_duration)
+outside_duration = t(outside_duration)
+outside_duration = as.data.frame(outside_duration)
+
+colnames(outside_duration) <- paste0("Posterior", random_sample)
+
+```
+
+### Q
+
+```{r}
+Q_outside_circles = unname(colMeans(outside_duration, na.rm = TRUE))
+```
+
+### V
+
+```{r}
+V_outside_circles = unname(sapply(outside_duration, function(x) var(x)/length(x)))
+```
+
+### Q_bar
+
+```{r}
+Q_bar_outside_circles = sum(Q_outside_circles) / length(Q_outside_circles)
+```
+
+### V_bar
+
+```{r}
+V_bar_outside_circles = sum(V_outside_circles) / length(V_outside_circles)
+```
+
+### B
+
+```{r}
+B_outside_circles = sum((Q_outside_circles - Q_bar_outside_circles)^2 / (length(Q_outside_circles) - 1))
+```
+
+### Confidence Interval
+
+```{r}
+upperBound_outside = Q_bar_outside_circles + 1.96 * sqrt(V_bar_outside_circles + (1 + 1/length(Q_outside_circles) * B_outside_circles))
+
+lowerBound_outside = Q_bar_outside_circles - 1.96 * sqrt(V_bar_outside_circles + (1 + 1/length(Q_outside_circles) * B_outside_circles))
+
+sprintf("The confidence interval for Cumulative Duration of population outside of both circles is %.4f to %.4f, based on %d random posterior samples", lowerBound_outside, upperBound_outside, length(random_sample))
+```
+
+## Education Level
+
+The Question is: % of people in population with kth level education live inside the circle?
+
+### Get Education
+
+```{r}
+instance_within_circle <- function(posterior_draw, center, radius) {
+  # Create linkage location
+  location_sf <- st_as_sf(posterior_draw, coords = c("longitude", "latitude"), 
+                          crs = 4326)
+  # Create circular polygon
+  point_sf <- st_as_sf(data.frame(lon = center[1], lat = center[2]), 
+                       coords = c("lon", "lat"), crs = 4326)
+  circle_sf <- st_buffer(point_sf, dist = radius)
+  
+  # Ensure coordinate system is the same
+  location_sf <- st_transform(location_sf, st_crs(circle_sf))
+  
+  # Check which points fall within the circle
+  points_within_circle <- st_within(location_sf, circle_sf, sparse = FALSE)
+  
+  # Extract row indices of points within the circle
+  indices <- which(points_within_circle)
+  
+  return(indices)
+}
+```
+
+
+```{r}
+# Apply the function to each specified column
+within_education = list()
+
+for (i in random_sample) {
+  column_name <- colnames(data_linkage)[i]
+  postDraws <- filter_no_link(data_linkage, column_name)
+  
+  postDraws = coord_split(postDraws)
+  
+  within_chapelHill_instances = instance_within_circle(postDraws, c(-79.0469, 35.95), 5000)
+  within_morrisville_instances = instance_within_circle(postDraws, c(-78.8856, 35.8235), 5000)
+  
+  education_within_chapelHill = list(data_linkage[within_chapelHill_instances, "eduatt_ACS"])
+  education_within_morrisville = list(data_linkage[within_morrisville_instances, "eduatt_ACS"])
+  
+  within_education[[i]] = c(education_within_chapelHill, education_within_morrisville)
+}
+
+within_education <- do.call(rbind, within_education)
+within_education = as.data.frame(within_education)
+colnames(within_education) <- c("Education_within_chapelHill", "Education_within_morrisville")
+
+```
+
+```{r}
+count_number_in_list <- function(list, number) {
+  sum(list == number)
+}
+
+count_number_in_dataframe <- function(dataframe, number) {
+  return(as.data.frame(lapply(dataframe, 
+                              function(x) sapply(x, count_number_in_list, number = number))
+                       )
+         )
+}
+
+# frequencies of education level for all posterior draws
+edu1 <- count_number_in_dataframe(within_education, 1)
+edu2 <- count_number_in_dataframe(within_education, 2)
+edu3 <- count_number_in_dataframe(within_education, 3)
+edu4 <- count_number_in_dataframe(within_education, 4)
+```
+
+### Education Level 1
+
+#### P_hat
+
+```{r}
+n = within_count["link_counts"]
+p_hat_chapelHill = edu1["Education_within_chapelHill"] / within_count["within_chapelHill"]
+p_hat_morrisville = edu1["Education_within_morrisville"] / within_count["within_morrisville"]
+```
+
+#### Variance
+
+```{r}
+v_chapelHill = p_hat_chapelHill * (1-p_hat_chapelHill) / n
+v_morrisville = p_hat_morrisville * (1-p_hat_morrisville) / n
+```
+
+#### Q_bar, Expected value of percentage of match
+
+```{r}
+q_bar_chapelHill = sum(p_hat_chapelHill / nrow(p_hat_chapelHill)) 
+q_bar_morrisville = sum(p_hat_morrisville / nrow(p_hat_morrisville)) 
+```
+
+#### V_bar, Expected value of variance
+
+```{r}
+v_bar_chapelHill = sum(v_chapelHill / nrow(v_chapelHill))
+v_bar_morrisville = sum(v_morrisville / nrow(v_morrisville))
+
+sprintf("The value of v_bar_chapelHill is %.7f", v_bar_chapelHill)
+sprintf("The value of v_bar_morrisville is %.7f", v_bar_morrisville)
+```
+
+#### B
+
+```{r}
+b_chapelHill = sum((p_hat_chapelHill - q_bar_chapelHill)^2 / (nrow(p_hat_chapelHill)-1))
+b_morrisville = sum((p_hat_morrisville - q_bar_morrisville)^2 / (nrow(p_hat_chapelHill)-1))
+
+sprintf("The value of b_chapelHill is %.7f", b_chapelHill)
+sprintf("The value of b_morrisville is %.7f", b_morrisville)
+```
+
+#### T, Total Variance
+
+```{r}
+T_chapelHill = (1 + 1/length(random_sample)) * b_chapelHill + v_bar_chapelHill
+T_morrisville = (1 + 1/length(random_sample)) * b_morrisville + v_bar_morrisville
+```
+
+#### Confidence Interval
+
+```{r}
+upperBound_chapelHill = q_bar_chapelHill + 1.96 * sqrt(T_chapelHill)
+lowerBound_chapelHill = q_bar_chapelHill - 1.96 * sqrt(T_chapelHill)
+sprintf("The confidence interval for Percentage of residents with level 1 education within Chapel Hill circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_chapelHill, upperBound_chapelHill, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_chapelHill)
+```
+
+```{r}
+upperBound_morrisville = q_bar_morrisville + 1.96 * sqrt(T_morrisville)
+lowerBound_morrisville = q_bar_morrisville - 1.96 * sqrt(T_morrisville)
+sprintf("The confidence interval for Percentage of residents with level 1 education within Morrisville circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_morrisville, upperBound_morrisville, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_morrisville)
+```
+
+### Education Level 2
+
+#### P_hat
+
+```{r}
+n = within_count["link_counts"]
+p_hat_chapelHill = edu2["Education_within_chapelHill"] / within_count["within_chapelHill"]
+p_hat_morrisville = edu2["Education_within_morrisville"] / within_count["within_morrisville"]
+```
+
+#### Variance
+
+```{r}
+v_chapelHill = p_hat_chapelHill * (1-p_hat_chapelHill) / n
+v_morrisville = p_hat_morrisville * (1-p_hat_morrisville) / n
+```
+
+#### Q_bar, Expected value of percentage of match
+
+```{r}
+q_bar_chapelHill = sum(p_hat_chapelHill / nrow(p_hat_chapelHill)) 
+q_bar_morrisville = sum(p_hat_morrisville / nrow(p_hat_morrisville)) 
+```
+
+#### V_bar, Expected value of variance
+
+```{r}
+v_bar_chapelHill = sum(v_chapelHill / nrow(v_chapelHill))
+v_bar_morrisville = sum(v_morrisville / nrow(v_morrisville))
+
+sprintf("The value of v_bar_chapelHill is %.7f", v_bar_chapelHill)
+sprintf("The value of v_bar_morrisville is %.7f", v_bar_morrisville)
+```
+
+#### B
+
+```{r}
+b_chapelHill = sum((p_hat_chapelHill - q_bar_chapelHill)^2 / (nrow(p_hat_chapelHill)-1))
+b_morrisville = sum((p_hat_morrisville - q_bar_morrisville)^2 / (nrow(p_hat_chapelHill)-1))
+
+sprintf("The value of b_chapelHill is %.7f", b_chapelHill)
+sprintf("The value of b_morrisville is %.7f", b_morrisville)
+```
+
+#### T, Total Variance
+
+```{r}
+T_chapelHill = (1 + 1/length(random_sample)) * b_chapelHill + v_bar_chapelHill
+T_morrisville = (1 + 1/length(random_sample)) * b_morrisville + v_bar_morrisville
+```
+
+#### Confidence Interval
+
+```{r}
+upperBound_chapelHill = q_bar_chapelHill + 1.96 * sqrt(T_chapelHill)
+lowerBound_chapelHill = q_bar_chapelHill - 1.96 * sqrt(T_chapelHill)
+sprintf("The confidence interval for Percentage of residents with level 2 education within Chapel Hill circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_chapelHill, upperBound_chapelHill, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_chapelHill)
+```
+
+```{r}
+upperBound_morrisville = q_bar_morrisville + 1.96 * sqrt(T_morrisville)
+lowerBound_morrisville = q_bar_morrisville - 1.96 * sqrt(T_morrisville)
+sprintf("The confidence interval for Percentage of residents with level 2 education within Morrisville circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_morrisville, upperBound_morrisville, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_morrisville)
+```
+
+### Education Level 3
+
+#### P_hat
+
+```{r}
+n = within_count["link_counts"]
+p_hat_chapelHill = edu3["Education_within_chapelHill"] / within_count["within_chapelHill"]
+p_hat_morrisville = edu3["Education_within_morrisville"] / within_count["within_morrisville"]
+```
+
+#### Variance
+
+```{r}
+v_chapelHill = p_hat_chapelHill * (1-p_hat_chapelHill) / n
+v_morrisville = p_hat_morrisville * (1-p_hat_morrisville) / n
+```
+
+#### Q_bar, Expected value of percentage of match
+
+```{r}
+q_bar_chapelHill = sum(p_hat_chapelHill / nrow(p_hat_chapelHill)) 
+q_bar_morrisville = sum(p_hat_morrisville / nrow(p_hat_morrisville)) 
+```
+
+#### V_bar, Expected value of variance
+
+```{r}
+v_bar_chapelHill = sum(v_chapelHill / nrow(v_chapelHill))
+v_bar_morrisville = sum(v_morrisville / nrow(v_morrisville))
+
+sprintf("The value of v_bar_chapelHill is %.7f", v_bar_chapelHill)
+sprintf("The value of v_bar_morrisville is %.7f", v_bar_morrisville)
+```
+
+#### B
+
+```{r}
+b_chapelHill = sum((p_hat_chapelHill - q_bar_chapelHill)^2 / (nrow(p_hat_chapelHill)-1))
+b_morrisville = sum((p_hat_morrisville - q_bar_morrisville)^2 / (nrow(p_hat_chapelHill)-1))
+
+sprintf("The value of b_chapelHill is %.7f", b_chapelHill)
+sprintf("The value of b_morrisville is %.7f", b_morrisville)
+```
+
+#### T, Total Variance
+
+```{r}
+T_chapelHill = (1 + 1/length(random_sample)) * b_chapelHill + v_bar_chapelHill
+T_morrisville = (1 + 1/length(random_sample)) * b_morrisville + v_bar_morrisville
+```
+
+#### Confidence Interval
+
+```{r}
+upperBound_chapelHill = q_bar_chapelHill + 1.96 * sqrt(T_chapelHill)
+lowerBound_chapelHill = q_bar_chapelHill - 1.96 * sqrt(T_chapelHill)
+sprintf("The confidence interval for Percentage of residents with level 3 education within Chapel Hill circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_chapelHill, upperBound_chapelHill, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_chapelHill)
+```
+
+```{r}
+upperBound_morrisville = q_bar_morrisville + 1.96 * sqrt(T_morrisville)
+lowerBound_morrisville = q_bar_morrisville - 1.96 * sqrt(T_morrisville)
+sprintf("The confidence interval for Percentage of residents with level 3 education within Morrisville circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_morrisville, upperBound_morrisville, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_morrisville)
+```
+
+### Education Level 4
+
+#### P_hat
+
+```{r}
+n = within_count["link_counts"]
+p_hat_chapelHill = edu4["Education_within_chapelHill"] / within_count["within_chapelHill"]
+p_hat_morrisville = edu4["Education_within_morrisville"] / within_count["within_morrisville"]
+```
+
+#### Variance
+
+```{r}
+v_chapelHill = p_hat_chapelHill * (1-p_hat_chapelHill) / n
+v_morrisville = p_hat_morrisville * (1-p_hat_morrisville) / n
+```
+
+#### Q_bar, Expected value of percentage of match
+
+```{r}
+q_bar_chapelHill = sum(p_hat_chapelHill / nrow(p_hat_chapelHill)) 
+q_bar_morrisville = sum(p_hat_morrisville / nrow(p_hat_morrisville)) 
+```
+
+#### V_bar, Expected value of variance
+
+```{r}
+v_bar_chapelHill = sum(v_chapelHill / nrow(v_chapelHill))
+v_bar_morrisville = sum(v_morrisville / nrow(v_morrisville))
+
+sprintf("The value of v_bar_chapelHill is %.7f", v_bar_chapelHill)
+sprintf("The value of v_bar_morrisville is %.7f", v_bar_morrisville)
+```
+
+#### B
+
+```{r}
+b_chapelHill = sum((p_hat_chapelHill - q_bar_chapelHill)^2 / (nrow(p_hat_chapelHill)-1))
+b_morrisville = sum((p_hat_morrisville - q_bar_morrisville)^2 / (nrow(p_hat_chapelHill)-1))
+
+sprintf("The value of b_chapelHill is %.7f", b_chapelHill)
+sprintf("The value of b_morrisville is %.7f", b_morrisville)
+```
+
+#### T, Total Variance
+
+```{r}
+T_chapelHill = (1 + 1/length(random_sample)) * b_chapelHill + v_bar_chapelHill
+T_morrisville = (1 + 1/length(random_sample)) * b_morrisville + v_bar_morrisville
+```
+
+#### Confidence Interval
+
+```{r}
+upperBound_chapelHill = q_bar_chapelHill + 1.96 * sqrt(T_chapelHill)
+lowerBound_chapelHill = q_bar_chapelHill - 1.96 * sqrt(T_chapelHill)
+sprintf("The confidence interval for Percentage of residents with level 4 education within Chapel Hill circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_chapelHill, upperBound_chapelHill, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_chapelHill)
+```
+
+```{r}
+upperBound_morrisville = q_bar_morrisville + 1.96 * sqrt(T_morrisville)
+lowerBound_morrisville = q_bar_morrisville - 1.96 * sqrt(T_morrisville)
+sprintf("The confidence interval for Percentage of residents with level 4 education within Morrisville circle is %.4f to %.4f, based on %d random posterior samples", lowerBound_morrisville, upperBound_morrisville, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_morrisville)
+```
+
+## Education Level (for outside circles)
+
+The Question is: % of people in population with kth level education live outside the circle?
+
+### Get Education
+
+```{r}
+education_outside_circles = data_link_summary[-within_circles_instances, "eduatt_ACS"]
+```
+
+```{r}
+# Apply the function to each specified column
+outside_edu = list()
+
+l = 1
+for (i in random_sample) {
+  column_name <- colnames(data_linkage)[i]
+  postDraws <- filter_no_link(data_linkage, column_name)
+  
+  postDraws = coord_split(postDraws)
+  
+  within_chapelHill_instances = instance_within_circle(postDraws, c(-79.0469, 35.95), 5000)
+  within_morrisville_instances = instance_within_circle(postDraws, c(-78.8856, 35.8235), 5000)
+  within_circles_instances = c(within_chapelHill_instances, within_morrisville_instances)
+  
+  education_outside_circles = list(data_linkage[-within_circles_instances, "eduatt_ACS"])
+  
+  outside_edu[l] = education_outside_circles
+  l = l+1
+}
+
+outside_edu = do.call(rbind, outside_edu)
+outside_edu = t(outside_edu)
+outside_edu = as.data.frame(outside_edu)
+
+colnames(outside_edu) <- paste0("Posterior", random_sample)
+```
+
+```{r}
+# frequency of education level for all posterior draws
+edu1_outside = sapply(outside_edu, function(col) sum(col == 1))
+edu2_outside = sapply(outside_edu, function(col) sum(col == 2))
+edu3_outside = sapply(outside_edu, function(col) sum(col == 3))
+edu4_outside = sapply(outside_edu, function(col) sum(col == 4))
+```
+
+### Education Level 1
+
+#### P_hat
+
+```{r}
+n = within_count["outside"]
+p_hat_outside = edu1_outside / nrow(outside_edu)
+```
+
+#### Variance
+
+```{r}
+v_outside = p_hat_outside * (1-p_hat_outside) / n
+```
+
+#### Q_bar, Expected value of percentage of match
+
+```{r}
+q_bar_outside = sum(p_hat_outside / length(p_hat_outside)) 
+```
+
+#### V_bar, Expected value of variance
+
+```{r}
+v_bar_outside = sum(v_outside / nrow(v_outside))
+
+sprintf("The value of v_bar_outside is %.7f", v_bar_chapelHill)
+```
+
+#### B
+
+```{r}
+b_outside = sum((p_hat_outside - q_bar_outside)^2 / (nrow(p_hat_outside)-1))
+
+sprintf("The value of b_outside is %.7f", b_chapelHill)
+```
+
+#### T, Total Variance
+
+```{r}
+T_outside = (1 + 1/length(random_sample)) * b_outside + v_bar_outside
+```
+
+#### Confidence Interval
+
+```{r}
+upperBound_outside = q_bar_outside + 1.96 * sqrt(T_outside)
+lowerBound_outside = q_bar_outside - 1.96 * sqrt(T_outside)
+sprintf("The confidence interval for Percentage of residents with level 1 education outside of both circles is %.4f to %.4f, based on %d random posterior samples", lowerBound_outside, upperBound_outside, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_outside)
+```
+
+### Education Level 2
+
+#### P_hat
+
+```{r}
+n = within_count["outside"]
+p_hat_outside = edu2_outside / nrow(outside_edu)
+```
+
+#### Variance
+
+```{r}
+v_outside = p_hat_outside * (1-p_hat_outside) / n
+```
+
+#### Q_bar, Expected value of percentage of match
+
+```{r}
+q_bar_outside = sum(p_hat_outside / length(p_hat_outside)) 
+```
+
+#### V_bar, Expected value of variance
+
+```{r}
+v_bar_outside = sum(v_outside / nrow(v_outside))
+
+sprintf("The value of v_bar_outside is %.7f", v_bar_chapelHill)
+```
+
+#### B
+
+```{r}
+b_outside = sum((p_hat_outside - q_bar_outside)^2 / (nrow(p_hat_outside)-1))
+
+sprintf("The value of b_outside is %.7f", b_chapelHill)
+```
+
+#### T, Total Variance
+
+```{r}
+T_outside = (1 + 1/length(random_sample)) * b_outside + v_bar_outside
+```
+
+#### Confidence Interval
+
+```{r}
+upperBound_outside = q_bar_outside + 1.96 * sqrt(T_outside)
+lowerBound_outside = q_bar_outside - 1.96 * sqrt(T_outside)
+sprintf("The confidence interval for Percentage of residents with level 2 education outside of both circles is %.4f to %.4f, based on %d random posterior samples", lowerBound_outside, upperBound_outside, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_outside)
+```
+
+### Education Level 3
+
+#### P_hat
+
+```{r}
+n = within_count["outside"]
+p_hat_outside = edu3_outside / nrow(outside_edu)
+```
+
+#### Variance
+
+```{r}
+v_outside = p_hat_outside * (1-p_hat_outside) / n
+```
+
+#### Q_bar, Expected value of percentage of match
+
+```{r}
+q_bar_outside = sum(p_hat_outside / length(p_hat_outside)) 
+```
+
+#### V_bar, Expected value of variance
+
+```{r}
+v_bar_outside = sum(v_outside / nrow(v_outside))
+
+sprintf("The value of v_bar_outside is %.7f", v_bar_chapelHill)
+```
+
+#### B
+
+```{r}
+b_outside = sum((p_hat_outside - q_bar_outside)^2 / (length(p_hat_outside)-1))
+
+sprintf("The value of b_outside is %.7f", b_chapelHill)
+```
+
+#### T, Total Variance
+
+```{r}
+T_outside = (1 + 1/length(random_sample)) * b_outside + v_bar_outside
+```
+
+#### Confidence Interval
+
+```{r}
+upperBound_outside = q_bar_outside + 1.96 * sqrt(T_outside)
+lowerBound_outside = q_bar_outside - 1.96 * sqrt(T_outside)
+sprintf("The confidence interval for Percentage of residents with level 3 education outside of both circles is %.4f to %.4f, based on %d random posterior samples", lowerBound_outside, upperBound_outside, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_outside)
+```
+
+### Education Level 4
+
+#### P_hat
+
+```{r}
+n = within_count["outside"]
+p_hat_outside = edu4_outside / nrow(outside_edu)
+```
+
+#### Variance
+
+```{r}
+v_outside = p_hat_outside * (1-p_hat_outside) / n
+```
+
+#### Q_bar, Expected value of percentage of match
+
+```{r}
+q_bar_outside = sum(p_hat_outside / length(p_hat_outside)) 
+```
+
+#### V_bar, Expected value of variance
+
+```{r}
+v_bar_outside = sum(v_outside / nrow(v_outside))
+
+sprintf("The value of v_bar_outside is %.7f", v_bar_chapelHill)
+```
+
+#### B
+
+```{r}
+b_outside = sum((p_hat_outside - q_bar_outside)^2 / (length(p_hat_outside)-1))
+
+sprintf("The value of b_outside is %.7f", b_chapelHill)
+```
+
+#### T, Total Variance
+
+```{r}
+T_outside = (1 + 1/length(random_sample)) * b_outside + v_bar_outside
+```
+
+#### Confidence Interval
+
+```{r}
+upperBound_outside = q_bar_outside + 1.96 * sqrt(T_outside)
+lowerBound_outside = q_bar_outside - 1.96 * sqrt(T_outside)
+sprintf("The confidence interval for Percentage of residents with level 1 education outside of both circles is %.4f to %.4f, based on %d random posterior samples", lowerBound_outside, upperBound_outside, length(random_sample))
+sprintf("The point estimate is %.4f", q_bar_outside)
+```
